@@ -145,7 +145,7 @@ This is a simulation: latencies are simulated and the tests cover ICMP and HTTP.
 **Fatima Ezzahrae Ouhmich**
 Cybersecurity & Embedded Systems, ENSA Tetouan
 Supervised by Prof. Fouad Aytouna
-LinkedIn: [your profile](https://www.linkedin.com/in/your-profile)
+
 
 ## License
 
