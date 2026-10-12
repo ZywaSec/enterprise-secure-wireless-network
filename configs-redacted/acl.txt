@@ -1,0 +1,66 @@
+!======================================================================
+! acl.txt - Traffic isolation policy (named extended ACLs on SW-CORE)
+! Project : Secure Enterprise Wireless Network (Cisco Packet Tracer)
+! Both ACLs are applied INBOUND on the SVI of the source VLAN.
+!======================================================================
+
+!----------------------------------------------------------------------
+! ACL 1 - BLOCK_GUEST (VLAN 40)
+! Goal: guests must not reach any internal network. Only traffic that is
+!       not explicitly denied (external/Internet side) is permitted.
+!----------------------------------------------------------------------
+enable
+configure terminal
+ip access-list extended BLOCK_GUEST
+ deny ip 192.168.40.0 0.0.0.255 192.168.10.0 0.0.0.255
+ deny ip 192.168.40.0 0.0.0.255 192.168.20.0 0.0.0.255
+ deny ip 192.168.40.0 0.0.0.255 192.168.30.0 0.0.0.255
+ deny ip 192.168.40.0 0.0.0.255 192.168.99.0 0.0.0.255
+ permit ip any any
+exit
+
+interface vlan 40
+ ip access-group BLOCK_GUEST in
+exit
+
+!----------------------------------------------------------------------
+! ACL 2 - BLOCK_RH_ADMIN (VLAN 30)
+! Goal: HR must not reach the Administration network (192.168.10.0/24)
+!       while keeping access to authorized resources such as IT servers.
+!----------------------------------------------------------------------
+ip access-list extended BLOCK_RH_ADMIN
+ deny ip 192.168.30.0 0.0.0.255 192.168.10.0 0.0.0.255
+ permit ip any any
+exit
+
+interface vlan 30
+ ip access-group BLOCK_RH_ADMIN in
+end
+write memory
+
+!======================================================================
+! Verification
+!======================================================================
+! show access-lists
+! show ip interface vlan 40 | include access list
+! show ip interface vlan 30 | include access list
+!
+! Expected output of "show access-lists" (as captured in the lab):
+!   Extended IP access list BLOCK_GUEST
+!       10 deny ip 192.168.40.0 0.0.0.255 192.168.10.0 0.0.0.255
+!       20 deny ip 192.168.40.0 0.0.0.255 192.168.20.0 0.0.0.255
+!       30 deny ip 192.168.40.0 0.0.0.255 192.168.30.0 0.0.0.255
+!       40 deny ip 192.168.40.0 0.0.0.255 192.168.99.0 0.0.0.255
+!       50 permit ip any any
+!   Extended IP access list BLOCK_RH_ADMIN
+!       10 deny ip 192.168.30.0 0.0.0.255 192.168.10.0 0.0.0.255
+!       20 permit ip any any
+!
+! Design notes
+! - ACLs are stateless: a rule that blocks HR -> Admin also drops the
+!   replies HR sends to Admin. A ping started from Admin toward HR
+!   therefore times out as well (observed in the lab, see
+!   docs/test-plan-and-results.md).
+! - The final "permit ip any any" is required: every ACL ends with an
+!   implicit "deny ip any any".
+! - Rules are evaluated top-down; keep specific denies above the permit.

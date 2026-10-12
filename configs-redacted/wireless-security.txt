@@ -1,0 +1,59 @@
+!======================================================================
+! wireless-security.txt - Access point and SSID configuration
+! Project : Secure Enterprise Wireless Network (Cisco Packet Tracer)
+! Access points are configured in the Packet Tracer GUI
+! (AP > Config > Port 1), so this file documents the settings
+! instead of CLI commands.
+! NOTE: Pre-shared keys are NOT published. Choose strong, unique
+!       passphrases (12+ characters) for your own deployment.
+!======================================================================
+
+SSID / SECURITY MATRIX
+----------------------------------------------------------------------
+Access point  SSID          Authentication  Encryption  Passphrase     VLAN
+AP-ADMIN      CORP_ADMIN    WPA2-PSK        AES         <REDACTED>     10
+AP-IT         CORP_IT       WPA2-PSK        AES         <REDACTED>     20
+AP-RH         CORP_RH       WPA2-PSK        AES         <REDACTED>     30
+AP-GUEST      GUEST_WIFI    WPA2-PSK        AES         <REDACTED>     40
+
+RADIO SETTINGS (as captured on AP-IT)
+----------------------------------------------------------------------
+Band / channel : 5 GHz, channel 112
+Coverage range : 140 m
+Port 1 SSID    : CORP_IT
+Note: the client adapter in Packet Tracer lists the SSIDs as
+      WPA2-PSK networks (Wireless Mode: Infrastructure).
+
+WIRED ATTACHMENT OF EACH ACCESS POINT
+----------------------------------------------------------------------
+AP-ADMIN -> SW-ACC-1 Fa0/2  (access port, VLAN 10)
+AP-IT    -> SW-ACC-2 Fa0/2  (access port, VLAN 20)
+AP-RH    -> SW-ACC-3 Fa0/2  (access port, VLAN 30)
+AP-GUEST -> SW-ACC-4 Fa0/2  (access port, VLAN 40)
+
+Wireless clients inherit the VLAN of the port their AP is plugged into,
+so the SSID defines the department and the ACLs enforce the policy.
+
+Equivalent switch-port configuration (example: SW-ACC-1)
+----------------------------------------------------------------------
+interface FastEthernet0/2
+ description Access point AP-ADMIN
+ switchport mode access
+ switchport access vlan 10
+ no shutdown
+
+CLIENT TEST PROCEDURE
+----------------------------------------------------------------------
+1. Open a laptop > Desktop > PC Wireless > Connect.
+2. Select the department SSID and enter its passphrase.
+3. Run "ipconfig" and confirm the address belongs to the expected VLAN
+   subnet (192.168.10/20/30/40.x) and the gateway is the SVI (.1).
+4. Run the connectivity tests described in
+   docs/test-plan-and-results.md.
+
+HARDENING IDEAS (not implemented in this lab)
+----------------------------------------------------------------------
+- WPA2-Enterprise (802.1X) with a RADIUS server instead of WPA2-PSK
+- Wireless LAN controller (WLC) for central management and roaming
+- Client isolation on the guest SSID
+- Separate, rotated passphrases and a documented key-change process

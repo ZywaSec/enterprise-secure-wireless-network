@@ -1,0 +1,119 @@
+!======================================================================
+! inter-vlan-routing.txt - SVIs, routed uplink, router R1, DHCP relay
+! Project : Secure Enterprise Wireless Network (Cisco Packet Tracer)
+! Devices : SW-CORE (Layer 3 switch), R1 (Cisco 2911)
+! NOTE    : Secrets removed. Values shown as <REDACTED> must be set by you.
+!======================================================================
+
+!----------------------------------------------------------------------
+! 1. SW-CORE - enable Layer 3 forwarding and create one SVI per VLAN
+!    Each SVI is the default gateway of its VLAN (.1 address).
+!----------------------------------------------------------------------
+enable
+configure terminal
+ip routing
+
+interface vlan 10
+ description Gateway ADMIN
+ ip address 192.168.10.1 255.255.255.0
+ ip helper-address 192.168.20.10
+ no shutdown
+
+interface vlan 20
+ description Gateway IT and servers
+ ip address 192.168.20.1 255.255.255.0
+ no shutdown
+ ! No helper-address needed: Server-DHCP is in this same VLAN.
+
+interface vlan 30
+ description Gateway RH
+ ip address 192.168.30.1 255.255.255.0
+ ip helper-address 192.168.20.10
+ no shutdown
+
+interface vlan 40
+ description Gateway GUEST
+ ip address 192.168.40.1 255.255.255.0
+ ip helper-address 192.168.20.10
+ no shutdown
+
+interface vlan 99
+ description Gateway MANAGEMENT
+ ip address 192.168.99.1 255.255.255.0
+ no shutdown
+
+!----------------------------------------------------------------------
+! 2. SW-CORE - routed point-to-point uplink toward R1 (10.0.0.0/30)
+!----------------------------------------------------------------------
+interface GigabitEthernet0/1
+ description Routed uplink to R1 Gi0/0
+ no switchport
+ ip address 10.0.0.2 255.255.255.252
+ no shutdown
+
+! Default route toward R1
+ip route 0.0.0.0 0.0.0.0 10.0.0.1
+end
+write memory
+
+!======================================================================
+! R1 - Cisco 2911 edge router
+! Static routes send every VLAN subnet back to SW-CORE (10.0.0.2).
+!======================================================================
+enable
+configure terminal
+hostname R1
+enable secret <REDACTED>
+service password-encryption
+
+interface GigabitEthernet0/0
+ description Link to SW-CORE Gi0/1
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+
+ip route 192.168.10.0 255.255.255.0 10.0.0.2
+ip route 192.168.20.0 255.255.255.0 10.0.0.2
+ip route 192.168.30.0 255.255.255.0 10.0.0.2
+ip route 192.168.40.0 255.255.255.0 10.0.0.2
+ip route 192.168.99.0 255.255.255.0 10.0.0.2
+
+! Default route toward the external/WAN side (as captured in the lab)
+ip route 0.0.0.0 0.0.0.0 GigabitEthernet0/1
+end
+write memory
+! Packet Tracer warns that a default route on a non point-to-point
+! interface may impact performance. Acceptable in the simulation; in a
+! real network use a next-hop IP address provided by the ISP.
+
+!======================================================================
+! SERVER SERVICES (configured in the Packet Tracer GUI, not in the CLI)
+!======================================================================
+! Server-DHCP  192.168.20.10 /24  gw 192.168.20.1  dns 192.168.20.20
+! Server-DNS   192.168.20.20 /24  gw 192.168.20.1  dns 192.168.20.20
+! Server-WEB   192.168.20.30 /24  gw 192.168.20.1  dns 192.168.20.20
+!
+! DHCP service (Services > DHCP): one pool per VLAN
+!   Pool     Default gateway   DNS server      Max users
+!   VLAN10   192.168.10.1      192.168.20.20   90
+!   VLAN20   192.168.20.1      192.168.20.20   90
+!   VLAN30   192.168.30.1      192.168.20.20   90
+!   VLAN40   192.168.40.1      192.168.20.20   90
+!   (Verify against the .pkt file: the report capture truncates the DNS and
+!    start-IP columns and does not show the VLAN40 pool.)
+!
+! DNS service (Services > DNS): A records
+!   dhcp.corp      A   192.168.20.10
+!   dns.corp       A   192.168.20.20
+!   intranet.corp  A   192.168.20.30
+!
+! HTTP service (Services > HTTP): intranet portal at http://intranet.corp
+
+!======================================================================
+! Suggested verification commands
+!======================================================================
+! show ip interface brief
+! show ip route
+! show running-config | section interface Vlan
+! ping 192.168.20.10          (from a client: DHCP/DNS/WEB reachability)
+! ping 192.168.99.1           (management gateway)
+! ipconfig /all               (on a PC: confirm the DHCP lease per VLAN)

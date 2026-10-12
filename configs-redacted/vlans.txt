@@ -1,0 +1,133 @@
+!======================================================================
+! vlans.txt - VLANs, trunks, access ports and Spanning Tree
+! Project : Secure Enterprise Wireless Network (Cisco Packet Tracer)
+! Devices : SW-CORE (Cisco 3560-24PS), SW-ACC-1..4 (Cisco 2960)
+! NOTE    : Secrets removed. Values shown as <REDACTED> must be set by you.
+!======================================================================
+
+!----------------------------------------------------------------------
+! 1. SW-CORE - base settings and VLAN database
+!----------------------------------------------------------------------
+enable
+configure terminal
+hostname SW-CORE
+enable secret <REDACTED>
+service password-encryption
+
+vlan 10
+ name ADMIN
+vlan 20
+ name IT
+vlan 30
+ name RH
+vlan 40
+ name GUEST
+vlan 99
+ name MANAGEMENT
+exit
+
+!----------------------------------------------------------------------
+! 2. SW-CORE - 802.1Q trunks toward the access switches
+!    Each access switch is reached through one trunk carrying all VLANs.
+!----------------------------------------------------------------------
+interface FastEthernet0/1
+ description Trunk to SW-ACC-1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+ no shutdown
+
+interface FastEthernet0/2
+ description Trunk to SW-ACC-2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+ no shutdown
+
+interface FastEthernet0/3
+ description Trunk to SW-ACC-3
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+ no shutdown
+
+interface FastEthernet0/4
+ description Trunk to SW-ACC-4
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+ no shutdown
+
+!----------------------------------------------------------------------
+! 3. SW-CORE - server-facing access ports (VLAN 20)
+!    Server-DHCP, Server-DNS and Server-WEB live in VLAN 20.
+!    Fa0/5 is shown in the captured configuration; apply the same
+!    settings to the other server ports used in your topology.
+!----------------------------------------------------------------------
+interface FastEthernet0/5
+ description Server port (VLAN 20)
+ switchport mode access
+ switchport access vlan 20
+ no shutdown
+
+!----------------------------------------------------------------------
+! 4. SW-CORE - Rapid PVST+ with SW-CORE as root bridge
+!----------------------------------------------------------------------
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1,10,20,30,40,99 priority 4096
+end
+write memory
+
+!======================================================================
+! ACCESS SWITCHES - same template on SW-ACC-1 to SW-ACC-4
+! Example below: SW-ACC-1 (VLAN 10 - Administration)
+!   SW-ACC-2 -> VLAN 20 (IT)    SW-ACC-3 -> VLAN 30 (RH)
+!   SW-ACC-4 -> VLAN 40 (GUEST)
+!======================================================================
+enable
+configure terminal
+hostname SW-ACC-1
+enable secret <REDACTED>
+service password-encryption
+
+vlan 10
+ name ADMIN
+vlan 99
+ name MANAGEMENT
+exit
+
+! Uplink to SW-CORE
+interface FastEthernet0/1
+ description Uplink to SW-CORE
+ switchport mode trunk
+ switchport trunk allowed vlan 10,99
+ no shutdown
+
+! Port to the department access point
+interface FastEthernet0/2
+ description Access point AP-ADMIN
+ switchport mode access
+ switchport access vlan 10
+ no shutdown
+
+! Management SVI (switch management address)
+interface vlan 99
+ ip address 192.168.99.11 255.255.255.0
+ no shutdown
+ip default-gateway 192.168.99.1
+end
+write memory
+
+!======================================================================
+! Suggested verification commands (run on the switches)
+!======================================================================
+! show vlan brief
+! show interfaces trunk
+! show spanning-tree summary
+! show spanning-tree vlan 10
+! show running-config interface FastEthernet0/1
+!
+! Known observation (see docs/security-implementation.md):
+! CDP reports "NATIVE_VLAN_MISMATCH" between SW-CORE and the access
+! switches. Align the native VLAN on both ends of each link and verify
+! which physical ports are cabled together.
